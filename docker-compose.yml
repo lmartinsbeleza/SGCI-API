@@ -1,0 +1,52 @@
+# SGCI-API — ambiente local de desenvolvimento
+# Banco: lido do .env (padrão: MySQL do Workbench no host). MySQL em container é opcional:
+#   docker compose --profile local-db up -d --build   (e no .env: DB_HOST=mysql)
+# Uso: docker compose up -d --build
+services:
+  api:
+    build: .
+    container_name: sgci-api
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+    environment:
+      APACHE_DOCUMENT_ROOT: public/
+      PHP_EXTENSIONS: "pdo_mysql pdo_sqlite gd intl"
+      PHP_INI_ERROR_REPORTING: E_ALL
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: mysql
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_DATABASE: ${DB_DATABASE:-sgci}
+      DB_USERNAME: ${DB_USERNAME:-sgci}
+      DB_PASSWORD: ${DB_PASSWORD:-sgci_dev}
+      DB_CHARSET: ${DB_CHARSET:-utf8}
+      DB_COLLATION: ${DB_COLLATION:-utf8_general_ci}
+      STARTUP_COMMAND_1: composer install --no-interaction
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  mysql:
+    profiles: ["local-db"]
+    image: mysql:8.4
+    command: --character-set-server=utf8mb3 --collation-server=utf8mb3_general_ci
+    container_name: sgci-mysql
+    ports:
+      - "3307:3306"           # acesso externo local (evita conflito com 3306)
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-sgci}
+      MYSQL_USER: ${DB_USERNAME:-sgci}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-sgci_dev}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_dev}
+    volumes:
+      - sgci-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  sgci-mysql-data:
